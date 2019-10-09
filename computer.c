@@ -181,6 +181,16 @@ unsigned int Fetch ( int addr) {
 /* Decode instr, returning decoded instruction. */
 void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
     /* Your code goes here */
+    unsigned short opcode;
+    assert(opcode <= 43);
+    
+    if(opcode == 0){
+        d->type = R;
+    }
+    else if(opcode == 2 || opcode == 3){
+        instr = J;
+    }
+    else instr = I;
 }
 
 /*
