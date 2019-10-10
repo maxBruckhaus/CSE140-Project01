@@ -216,10 +216,10 @@ void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
         d->regs.i.rt = rt;
         
         
-        unsigned int lmb = (instr << 16) >> 31; //9am-11am AOA 142
+        unsigned int lmb = (instr << 16) >> 31; //9am-11am AOA 142 COB 396 15A
         unsigned int imm;
         
-        if(lmb == 0){
+        if(lmb == 0){ //might have to change
             imm = (instr << 16)>>16 & 0x0000FFFF;	// in the mips data path, imm extends 16 bits.
             
             if((d->op==35) | (d->op==43) | (d->op==9)){	//lw|sw|addiu
@@ -322,41 +322,73 @@ int Execute ( DecodedInstr* d, RegVals* rVals) {
     
     //R type
     if(d->op == 0){
-        if(d->regs.r.funct == 0){ //sll
-            return (mips.registers[d->regs.r.rt] << d->regs.r.shamt); //rd = rt << shamt
+        if(d->regs.r.funct == 0){ //sll rd = rt << shamt
+            return (mips.registers[d->regs.r.rt] << d->regs.r.shamt);
         }
-        else if(d->regs.r.funct == 2){ //srl
-            return (mips.registers[d->regs.r.rt] >> d->regs.r.shamt); //rd = rt >> shamt
+        else if(d->regs.r.funct == 2){ //srl rd = rt >> shamt
+            return (mips.registers[d->regs.r.rt] >> d->regs.r.shamt);
         }
-    }
-    if(d->op == 2){
-        
-    }
-    if(d->op == 42){
-        
-    }
-    if(d->op == 37){
-        
-    }
-    if(d->op == 36){
-        
-    }
-    if(d->op == 35){
-        
-    }
-    if(d->op == 33){
-        
-    }
-    if(d->op == 8){
+        else if(d->regs.r.funct == 42){ //slt rd = rs < rt; it is returning the value 1 or 0
+            return (mips.registers[d->regs.r.rs] - mips.registers[d->regs.r.rt] < 0);
+        }
+        else if(d->regs.r.funct == 37){ //or rd = rs | rt
+            return (mips.registers[d->regs.r.rs] | mips.registers[d->regs.r.rt]);
+        }
+        else if(d->regs.r.funct == 36){ //and rd = rs & rt
+            return (mips.registers[d->regs.r.rs] & mips.registers[d->regs.r.rt]);
+        }
+        else if(d->regs.r.funct == 35){ //subu rd = rs - rt
+            return (mips.registers[d->regs.r.rs] - mips.registers[d->regs.r.rt]);
+        }
+        else if(d->regs.r.funct == 33){ //addu rd = rs + rt
+            return (mips.registers[d->regs.r.rs] + mips.registers[d->regs.r.rt]);
+        }
+        else if(d->regs.r.funct == 8){ //jr PC = R[address]
+            return (mips.registers[31]);
+            
+        }
         
     }
     
     
     //J type
+    else if(d->op == 2 || d->op == 3){
+        return (mips.pc + 4);
+    }
     
     
     //I type
-    
+    else if(d->op == 9){ //addiu rt = rs + imm
+        return (mips.registers[d->regs.i.rs] + d->regs.i.addr_or_immed);
+    }
+    else if(d->op == 12){ //andi rt = rs & imm
+        return (mips.registers[d->regs.i.rs] & d->regs.i.addr_or_immed);
+    }
+    else if(d->op == 13){ //ori rt = rs | imm
+        return (mips.registers[d->regs.i.rs] | d->regs.i.addr_or_immed);
+    }
+    else if(d->op == 15){ //lui extend rt = imm * 216
+        return ((d->regs.i.addr_or_immed << 16) & 0xFFFF0000);
+    }
+    else if(d->op == 35){ //lw rt = M[rs + imm] but with stack points down
+        return (mips.registers[d->regs.i.rs] - (d->regs.i.addr_or_immed/4+1)*4);
+    }
+    else if(d->op == 43){ //sw M[rs + imm] = rt ""
+        return (mips.registers[d->regs.i.rs] - (d->regs.i.addr_or_immed/4+1)*4);
+    }
+    else if(d->op == 4){ //beq
+        if(mips.registers[d->regs.i.rs] - mips.registers[d->regs.i.rt] == 0){
+            //branched = 1;
+            return (mips.pc+4+4*d->regs.i.addr_or_immed);
+        }
+        
+    }
+    else if(d->op == 5){ //bne
+        if(mips.registers[d->regs.i.rs] - mips.registers[d->regs.i.rt] != 0){
+            //branched = TRUE;
+            return (mips.pc+4+4*d->regs.i.addr_or_immed);
+        }
+    }
     
     
   return 0;
