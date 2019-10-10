@@ -181,16 +181,61 @@ unsigned int Fetch ( int addr) {
 /* Decode instr, returning decoded instruction. */
 void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
     /* Your code goes here */
-    unsigned short opcode;
-    assert(opcode <= 43);
+    unsigned int rs, rt, rd, temp;
+    //assert(d->op <= 43);
     
-    if(opcode == 0){
+    d->op = instr >> 26; //shifting 26 bits to the right results in first 6 bits
+    
+    temp = instr << 6; //$rs
+    temp = temp >> 27;
+    rs = temp;
+    
+    temp = instr << 11; //$rt
+    temp = temp >> 27;
+    rt = temp;
+    
+    temp = instr << 16; //$rd
+    temp = temp >> 27;
+    rd = temp;
+    
+    if(d->op == 0){
         d->type = R;
+        d->regs.r.rs = rs;
+        d->regs.r.rt = rt;
+        d->regs.r.rd = rd;
+        d->regs.r.shamt = (instr << 21) >> 27;
+        d->regs.r.funct = (instr << 26) >> 26;
     }
-    else if(opcode == 2 || opcode == 3){
-        instr = J;
+    else if(d->op == 2 || d->op == 3){
+        d->type = J;
+        d->regs.j.target = (instr << 6) >> 4 | (mips.pc >> 28) << 28;
     }
-    else instr = I;
+    else{
+        d->type = I;
+        d->regs.i.rs = rs;
+        d->regs.i.rt = rt;
+        
+        
+        unsigned int lmb = (instr << 16) >> 31; //9am-11am AOA 142
+        unsigned int imm;
+        
+        if(lmb == 0){
+            imm = (instr << 16)>>16 & 0x0000FFFF;	// in the mips data path, imm extends 16 bits.
+            
+            if((d->op==35) | (d->op==43) | (d->op==9)){	//lw|sw|addiu
+                if(((instr << 16)>>16) >> 15){
+                    imm = (instr << 16)>>16 | 0xFFFF0000;    //extend
+            d->regs.i.addr_or_immed = imm;
+                }
+            }
+        }
+        
+//        else if(lmb == 1){
+//            imm = (instr << 16)>>16 | 0xFFFF0000;    //extend
+//            d->regs.i.addr_or_immed = imm;
+//        }
+    
+    }
 }
 
 /*
@@ -204,6 +249,46 @@ void PrintInstruction ( DecodedInstr* d) {
 /* Perform computation needed to execute d, returning computed value */
 int Execute ( DecodedInstr* d, RegVals* rVals) {
     /* Your code goes here */
+    
+    //R type
+    if(d->op == 0){
+        if(d->regs.r.funct == 0){ //sll
+            return (mips.registers[d->regs.r.rt] << d->regs.r.shamt); //rd = rt << shamt
+        }
+        else if(d->regs.r.funct == 2){ //srl
+            return (mips.registers[d->regs.r.rt] >> d->regs.r.shamt); //rd = rt >> shamt
+        }
+    }
+    if(d->op == 2){
+        
+    }
+    if(d->op == 42){
+        
+    }
+    if(d->op == 37){
+        
+    }
+    if(d->op == 36){
+        
+    }
+    if(d->op == 35){
+        
+    }
+    if(d->op == 33){
+        
+    }
+    if(d->op == 8){
+        
+    }
+    
+    
+    //J type
+    
+    
+    //I type
+    
+    
+    
   return 0;
 }
 
@@ -215,6 +300,20 @@ int Execute ( DecodedInstr* d, RegVals* rVals) {
 void UpdatePC ( DecodedInstr* d, int val) {
     mips.pc+=4;
     /* Your code goes here */
+    //we need branches and jump
+    
+    if(d->op == 2){ //if j
+        mips.pc = d->regs.j.target;
+    }
+    
+    if(d->op == 3){ // if jal
+        mips.pc = d->regs.j.target;
+    }
+    else if(d->regs.r.funct == 8){ //if jr which is now r type
+        mips.pc = val;
+    }
+    //need one for branch
+    
 }
 
 /*
