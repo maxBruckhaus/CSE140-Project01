@@ -244,6 +244,76 @@ void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
  */
 void PrintInstruction ( DecodedInstr* d) {
     /* Your code goes here */
+    char* instr = (char*) malloc(25);
+    // R-type instructions
+    if (d->op == 0){
+        if (d->regs.r.funct == 0){
+            instr = "sll";
+        }else if (d->regs.r.funct == 2){
+            instr = "srl";
+        }else if (d->regs.r.funct == 8){
+            instr = "jr";
+        }else if (d->regs.r.funct == 33){
+            instr = "addu";
+        }else if (d->regs.r.funct == 35){
+            instr = "subu";
+        }else if (d->regs.r.funct == 36){
+            instr = "and";
+        }else if (d->regs.r.funct == 37){
+            instr = "or";
+        }
+        // J-type instructions
+    }else if (d->op == 2){
+        instr = "j";
+    }else if (d->op == 3){
+        instr = "jal";
+        // I-type instructions
+    }else if (d->op == 4){
+        instr = "beq";
+    }else if (d->op == 5){
+        instr = "bne";
+    }else if (d->op == 9){
+        instr = "addiu";
+    }else if (d->op == 10){
+        instr = "slti";
+    }else if (d->op == 12){
+        instr = "andi";
+    }else if (d->op == 13){
+        instr = "ori";
+    }else if (d->op == 15){
+        instr = "lui";
+    }else if (d->op == 35){
+        instr = "lw";
+    }else if (d->op == 43){
+        instr = "sw";
+    }
+
+    printf("%s\t", instr);
+
+    // Print R-type instruction
+    if (d->op == 0 && d->regs.r.funct != 8){
+        printf("$%d, $%d\n", d->regs.r.rd, d->regs.r.rs, d->regs.r.rt);
+        // Print R-type jump
+    }else if (d->regs.r.funct == 8){
+        printf("$%d\n", d->regs.i.rs);
+        // Print J-type
+    }else if (d->op == 2 || d->op == 3){
+        printf("$%d", d->regs.j.target);
+        // Print I-type
+    }else{
+        // beq, bne
+        if (d->op == 4 || d->op == 5){
+            printf("$%d, $%d, 0x%8.8x\n", d->regs.i.rs, d->regs.i.rt, mips.pc+16);
+        // andi, ori, lui
+        }else if (d->op == 12 || d->op == 13 || d->op == 15){
+            printf("$%d, $%d, 0x%x\n", d->regs.i.rt, d->regs.i.rs, d->regs.i.addr_or_immed);
+        // lw, sw
+        }else if (d->op == 35 || d->op == 43){
+            printf("$%d, %d($%d)\n", d->regs.i.rt, d->regs.i.addr_or_immed, d->regs.i.rs);
+        }else{
+            printf("$%d, $%d, $%d\n", d->regs.i.rt, d->regs.i.rs, d->regs.i.addr_or_immed);
+        }
+    }
 }
 
 /* Perform computation needed to execute d, returning computed value */
