@@ -398,7 +398,26 @@ void UpdatePC ( DecodedInstr* d, int val) {
  */
 int Mem( DecodedInstr* d, int val, int *changedMem) {
     /* Your code goes here */
-  return 0;
+    // Data memory range: 0x00401000 - 0x00403fff
+
+    //TODO: Might have to change second bound
+    if (val < 0x00401000 || val > 0x00404000 || val % 4 != 0){
+        printf("Memory Access Exception at [0x%8.8x]: address [0x%8.8x]\n", mips.pc, val);
+        exit(0);
+    }
+
+    // lw
+    if (d->op == 35){
+        mips.registers[d->regs.i.rt] = Fetch(val);
+        *changedMem = -1;
+        val = mips.registers[d->regs.i.rt];
+    // sw
+    }else if (d->op == 43){
+        mips.memory[(val-0x00400000)/4] = mips.registers[d->regs.i.rt];
+        *changedMem = val;
+    }
+
+    return val;
 }
 
 /* 
