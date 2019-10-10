@@ -292,7 +292,7 @@ void PrintInstruction ( DecodedInstr* d) {
 
     // Print R-type instruction
     if (d->op == 0 && d->regs.r.funct != 8){
-        printf("$%d, $%d\n", d->regs.r.rd, d->regs.r.rs, d->regs.r.rt);
+        printf("$%d, $%d, $%d\n", d->regs.r.rd, d->regs.r.rs, d->regs.r.rt);
         // Print R-type jump
     }else if (d->regs.r.funct == 8){
         printf("$%d\n", d->regs.i.rs);
