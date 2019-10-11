@@ -183,21 +183,21 @@ void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
     /* Your code goes here */
     unsigned int rs, rt, rd, temp;
     //assert(d->op <= 43);
-    
+
     d->op = instr >> 26; //shifting 26 bits to the right results in first 6 bits
-    
+
     temp = instr << 6; //$rs
     temp = temp >> 27;
     rs = temp;
-    
+
     temp = instr << 11; //$rt
     temp = temp >> 27;
     rt = temp;
-    
+
     temp = instr << 16; //$rd
     temp = temp >> 27;
     rd = temp;
-    
+
     if(d->op == 0){
         d->type = R;
         d->regs.r.rs = rs;
@@ -214,27 +214,27 @@ void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
         d->type = I;
         d->regs.i.rs = rs;
         d->regs.i.rt = rt;
-        
-        
-        unsigned int lmb = (instr << 16) >> 31; //9am-11am AOA 142 COB 396 15A
-        unsigned int imm;
-        
-        if(lmb == 0){ //might have to change
-            imm = (instr << 16)>>16 & 0x0000FFFF;	// in the mips data path, imm extends 16 bits.
-            
+
+
+//        unsigned int lmb = (instr << 16) >> 31; //9am-11am AOA 142 COB 396 15A
+//        unsigned int imm;
+//
+//        if(lmb == 0){ //might have to change
+            unsigned int imm = (instr << 16)>>16 & 0x0000FFFF;	// in the mips data path, imm extends 16 bits.
+
             if((d->op==35) | (d->op==43) | (d->op==9)){	//lw|sw|addiu
                 if(((instr << 16)>>16) >> 15){
                     imm = (instr << 16)>>16 | 0xFFFF0000;    //extend
             d->regs.i.addr_or_immed = imm;
                 }
             }
-        }
-        
+        //}
+
 //        else if(lmb == 1){
 //            imm = (instr << 16)>>16 | 0xFFFF0000;    //extend
 //            d->regs.i.addr_or_immed = imm;
 //        }
-    
+
     }
 }
 
@@ -261,6 +261,8 @@ void PrintInstruction ( DecodedInstr* d) {
             instr = "and";
         }else if (d->regs.r.funct == 37){
             instr = "or";
+        }else if (d->regs.r.funct == 42){
+            instr = "slt";
         }
         // J-type instructions
     }else if (d->op == 2){
@@ -274,8 +276,6 @@ void PrintInstruction ( DecodedInstr* d) {
         instr = "bne";
     }else if (d->op == 9){
         instr = "addiu";
-    }else if (d->op == 10){
-        instr = "slti";
     }else if (d->op == 12){
         instr = "andi";
     }else if (d->op == 13){
@@ -291,14 +291,14 @@ void PrintInstruction ( DecodedInstr* d) {
     printf("%s\t", instr);
 
     // Print R-type instruction
-    if (d->op == 0 && d->regs.r.funct != 8){
+    if (d->type == R && d->regs.r.funct != 8){
         printf("$%d, $%d, $%d\n", d->regs.r.rd, d->regs.r.rs, d->regs.r.rt);
         // Print R-type jump
     }else if (d->regs.r.funct == 8){
         printf("$%d\n", d->regs.i.rs);
         // Print J-type
     }else if (d->op == 2 || d->op == 3){
-        printf("$%d", d->regs.j.target);
+        printf("0x%8.8x\n", d->regs.j.target);
         // Print I-type
     }else{
         // beq, bne
@@ -311,7 +311,7 @@ void PrintInstruction ( DecodedInstr* d) {
         }else if (d->op == 35 || d->op == 43){
             printf("$%d, %d($%d)\n", d->regs.i.rt, d->regs.i.addr_or_immed, d->regs.i.rs);
         }else{
-            printf("$%d, $%d, $%d\n", d->regs.i.rt, d->regs.i.rs, d->regs.i.addr_or_immed);
+            printf("$%d, $%d, %d\n", d->regs.i.rt, d->regs.i.rs, d->regs.i.addr_or_immed);
         }
     }
 }
@@ -319,7 +319,7 @@ void PrintInstruction ( DecodedInstr* d) {
 /* Perform computation needed to execute d, returning computed value */
 int Execute ( DecodedInstr* d, RegVals* rVals) {
     /* Your code goes here */
-    
+
     //R type
     if(d->op == 0){
         if(d->regs.r.funct == 0){ //sll rd = rt << shamt
@@ -345,18 +345,15 @@ int Execute ( DecodedInstr* d, RegVals* rVals) {
         }
         else if(d->regs.r.funct == 8){ //jr PC = R[address]
             return (mips.registers[31]);
-            
+
         }
-        
+
     }
-    
-    
+
     //J type
     else if(d->op == 2 || d->op == 3){
         return (mips.pc + 4);
     }
-    
-    
     //I type
     else if(d->op == 9){ //addiu rt = rs + imm
         return (mips.registers[d->regs.i.rs] + d->regs.i.addr_or_immed);
@@ -378,19 +375,16 @@ int Execute ( DecodedInstr* d, RegVals* rVals) {
     }
     else if(d->op == 4){ //beq
         if(mips.registers[d->regs.i.rs] - mips.registers[d->regs.i.rt] == 0){
-            //branched = 1;
             return (mips.pc+4+4*d->regs.i.addr_or_immed);
         }
-        
     }
     else if(d->op == 5){ //bne
         if(mips.registers[d->regs.i.rs] - mips.registers[d->regs.i.rt] != 0){
-            //branched = TRUE;
             return (mips.pc+4+4*d->regs.i.addr_or_immed);
         }
+    }else{
+        exit(0);
     }
-    
-    
   return 0;
 }
 
@@ -403,50 +397,54 @@ void UpdatePC ( DecodedInstr* d, int val) {
     mips.pc+=4;
     /* Your code goes here */
     //we need branches and jump
-    
+
     if(d->op == 2){ //if j
         mips.pc = d->regs.j.target;
     }
-    
+
     if(d->op == 3){ // if jal
         mips.pc = d->regs.j.target;
     }
     else if(d->regs.r.funct == 8){ //if jr which is now r type
         mips.pc = val;
     }
-    //need one for branch
-    
+    if (d->regs.r.funct == 4 || d->regs.r.funct == 5){
+        mips.pc = val;
+    }
 }
 
 /*
- * Perform memory load or store. Place the address of any updated memory 
- * in *changedMem, otherwise put -1 in *changedMem. Return any memory value 
- * that is read, otherwise return -1. 
+ * Perform memory load or store. Place the address of any updated memory
+ * in *changedMem, otherwise put -1 in *changedMem. Return any memory value
+ * that is read, otherwise return -1.
  *
- * Remember that we're mapping MIPS addresses to indices in the mips.memory 
- * array. mips.memory[0] corresponds with address 0x00400000, mips.memory[1] 
+ * Remember that we're mapping MIPS addresses to indices in the mips.memory
+ * array. mips.memory[0] corresponds with address 0x00400000, mips.memory[1]
  * with address 0x00400004, and so forth.
  *
  */
 int Mem( DecodedInstr* d, int val, int *changedMem) {
     /* Your code goes here */
     // Data memory range: 0x00401000 - 0x00403fff
+    *changedMem = -1;
 
-    //TODO: Might have to change second bound
-    if (val < 0x00401000 || val > 0x00404000 || val % 4 != 0){
-        printf("Memory Access Exception at [0x%8.8x]: address [0x%8.8x]\n", mips.pc, val);
-        exit(0);
-    }
+    if (d->op == 35 || d->op == 43){
+        //TODO: Might have to change second bound
+        if (val < 0x00401000 || val > 0x00403fff || val % 4 != 0){
+            printf("Memory Access Exception at [0x%8.8x]: address [0x%8.8x]\n", mips.pc, val);
+            exit(0);
+        }
 
-    // lw
-    if (d->op == 35){
-        mips.registers[d->regs.i.rt] = Fetch(val);
-        *changedMem = -1;
-        val = mips.registers[d->regs.i.rt];
-    // sw
-    }else if (d->op == 43){
-        mips.memory[(val-0x00400000)/4] = mips.registers[d->regs.i.rt];
-        *changedMem = val;
+        // lw
+        if (d->op == 35){
+            mips.registers[d->regs.i.rt] = Fetch(val);
+            *changedMem = -1;
+            val = mips.registers[d->regs.i.rt];
+            // sw
+        }else if (d->op == 43){
+            mips.memory[(val-0x00400000)/4] = mips.registers[d->regs.i.rt];
+            *changedMem = val;
+        }
     }
 
     return val;
@@ -460,4 +458,23 @@ int Mem( DecodedInstr* d, int val, int *changedMem) {
  */
 void RegWrite( DecodedInstr* d, int val, int *changedReg) {
     /* Your code goes here */
+
+    *changedReg = -1;
+
+    // jal
+    if (d->op == 3){
+        mips.registers[31] = val;
+        *changedReg = 31;
+    }else{
+        if ((( (d->regs.r.funct == 0) | (d->regs.r.funct == 2) | (d->regs.r.funct == 33) | (d->regs.r.funct == 35) |
+                (d->regs.r.funct == 36) | (d->regs.r.funct == 37) | (d->regs.r.funct == 42)) & (d->op == 0)) |
+                (d->op == 3) | (d->op == 9) | (d->op == 12) | (d->op == 13) | (d->op == 15) | (d->op == 35)){
+            if (d->op == 0){
+                *changedReg = d->regs.r.rd;
+            }else if (d->type == I){
+                *changedReg = d->regs.i.rt;
+                mips.registers[*changedReg] = val;
+            }
+        }
+    }
 }
