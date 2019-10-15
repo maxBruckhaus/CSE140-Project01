@@ -2,7 +2,11 @@
 #include <stdlib.h>
 #include <netinet/in.h>
 #include "computer.h"
+#include "stdbool.h"
 #undef mips			/* gcc already has a def for mips */
+
+//#define TRUE 1
+//#define FALSE 0
 
 unsigned int endianSwap(unsigned int);
 
@@ -18,6 +22,8 @@ void PrintInstruction (DecodedInstr*);
 /*Globally accessible Computer variable*/
 Computer mips;
 RegVals rVals;
+
+bool isBranched = false;
 
 /*
  *  Return an initialized computer with the stack pointer set to the
@@ -210,8 +216,8 @@ void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
         d->type = J;
         d->regs.j.target = (instr << 6) >> 4 | (mips.pc >> 28) << 28;
     }
-    else{
-        d->type = I;
+    else if(d->type == I){
+        //d->type = I;
         d->regs.i.rs = rs;
         d->regs.i.rt = rt;
 
@@ -264,6 +270,9 @@ void PrintInstruction ( DecodedInstr* d) {
         }else if (d->regs.r.funct == 42){
             instr = "slt";
         }
+        else{
+            exit(0);
+        }
         // J-type instructions
     }else if (d->op == 2){
         instr = "j";
@@ -286,6 +295,9 @@ void PrintInstruction ( DecodedInstr* d) {
         instr = "lw";
     }else if (d->op == 43){
         instr = "sw";
+    }
+    else{
+        exit(0);
     }
 
     printf("%s\t", instr);
@@ -319,6 +331,7 @@ void PrintInstruction ( DecodedInstr* d) {
 /* Perform computation needed to execute d, returning computed value */
 int Execute ( DecodedInstr* d, RegVals* rVals) {
     /* Your code goes here */
+    isBranched = false;
 
     //R type
     if(d->op == 0){
@@ -351,7 +364,7 @@ int Execute ( DecodedInstr* d, RegVals* rVals) {
     }
 
     //J type
-    else if(d->op == 2 || d->op == 3){
+    else if(d->op == 2){
         return (mips.pc + 4);
     }
     //I type
@@ -375,11 +388,13 @@ int Execute ( DecodedInstr* d, RegVals* rVals) {
     }
     else if(d->op == 4){ //beq
         if(mips.registers[d->regs.i.rs] - mips.registers[d->regs.i.rt] == 0){
+            isBranched = true;
             return (mips.pc+4+4*d->regs.i.addr_or_immed);
         }
     }
     else if(d->op == 5){ //bne
         if(mips.registers[d->regs.i.rs] - mips.registers[d->regs.i.rt] != 0){
+            isBranched = true;
             return (mips.pc+4+4*d->regs.i.addr_or_immed);
         }
     }else{
@@ -398,17 +413,16 @@ void UpdatePC ( DecodedInstr* d, int val) {
     /* Your code goes here */
     //we need branches and jump
 
-    if(d->op == 2){ //if j
-        mips.pc = d->regs.j.target;
-    }
-
-    if(d->op == 3){ // if jal
+    if(d->op == 2 || d->op == 3){ //if j
         mips.pc = d->regs.j.target;
     }
     else if(d->regs.r.funct == 8){ //if jr which is now r type
         mips.pc = val;
     }
-    if (d->regs.r.funct == 4 || d->regs.r.funct == 5){
+//    if (d->regs.r.funct == 4 || d->regs.r.funct == 5){
+//        mips.pc = val;
+//    }
+    if(isBranched){
         mips.pc = val;
     }
 }
@@ -430,7 +444,7 @@ int Mem( DecodedInstr* d, int val, int *changedMem) {
 
     if (d->op == 35 || d->op == 43){
         //TODO: Might have to change second bound
-        if (val < 0x00401000 || val > 0x00403fff || val % 4 != 0){
+        if (val < 0x00401000 || val > 0x00404000 || val % 4 != 0){
             printf("Memory Access Exception at [0x%8.8x]: address [0x%8.8x]\n", mips.pc, val);
             exit(0);
         }
@@ -445,7 +459,9 @@ int Mem( DecodedInstr* d, int val, int *changedMem) {
             mips.memory[(val-0x00400000)/4] = mips.registers[d->regs.i.rt];
             *changedMem = val;
         }
-    }
+}
+
+    
 
     return val;
 }
@@ -456,25 +472,82 @@ int Mem( DecodedInstr* d, int val, int *changedMem) {
  * put the index of the modified register in *changedReg,
  * otherwise put -1 in *changedReg.
  */
+//void RegWrite( DecodedInstr* d, int val, int *changedReg) {
+//    /* Your code goes here */
+//
+//    *changedReg = -1;
+//
+//    // jal
+//    if (d->op == 3){
+//        mips.registers[31] = val;
+//        *changedReg = 31;
+//    }
+//    else if(d->type == R){
+//        if ((( (d->regs.r.funct == 0)
+//              | (d->regs.r.funct == 2)
+//              | (d->regs.r.funct == 33)
+//              | (d->regs.r.funct == 35)
+//              | (d->regs.r.funct == 36)
+//              | (d->regs.r.funct == 37)
+//              | (d->regs.r.funct == 42))
+//             & (d->op == 0))
+//            |(d->op == 3)
+//            | (d->op == 9)
+//            | (d->op == 12)
+//            | (d->op == 13)
+//            | (d->op == 15)
+//            | (d->op == 35)){
+//            if (d->op == 0){
+//                *changedReg = d->regs.r.rd;
+//            }
+//            }
+//            else if (d->type == I){
+//                *changedReg = d->regs.i.rt;
+//                mips.registers[*changedReg] = val;
+//            }
+//        }
+//    //}
+//}
 void RegWrite( DecodedInstr* d, int val, int *changedReg) {
-    /* Your code goes here */
-
-    *changedReg = -1;
-
-    // jal
-    if (d->op == 3){
-        mips.registers[31] = val;
-        *changedReg = 31;
-    }else{
-        if ((( (d->regs.r.funct == 0) | (d->regs.r.funct == 2) | (d->regs.r.funct == 33) | (d->regs.r.funct == 35) |
-                (d->regs.r.funct == 36) | (d->regs.r.funct == 37) | (d->regs.r.funct == 42)) & (d->op == 0)) |
-                (d->op == 3) | (d->op == 9) | (d->op == 12) | (d->op == 13) | (d->op == 15) | (d->op == 35)){
-            if (d->op == 0){
-                *changedReg = d->regs.r.rd;
-            }else if (d->type == I){
-                *changedReg = d->regs.i.rt;
-                mips.registers[*changedReg] = val;
-            }
+    
+    
+    *changedReg = -1;	//Default to no changes
+    
+    switch (d->op){
+            
+        case 3:	//other jump instructions should not write to registers except for jal
+        {
+            mips.registers[31] = val;
+            *changedReg = 31;
         }
+            break;
+            
+            //other operations that change registers
+        default:
+            if(((
+                 // R type
+                 (d->regs.r.funct == 33)	//addu
+                 | (d->regs.r.funct == 35)	//subu
+                 | (d->regs.r.funct == 0)	//sll
+                 | (d->regs.r.funct == 2)	//srl
+                 |(d->regs.r.funct == 36)	//and
+                 | (d->regs.r.funct == 37)  //lbu
+                 | (d->regs.r.funct == 42))  //slt
+                & (d->op == 0))	 // I type
+               |(d->op == 9)	//addiu
+               | (d->op == 12) //andi
+               | (d->op == 13) //ori
+               | (d->op == 15) //lui
+               | (d->op == 35) //lw
+               | (d->op == 3)) //jal
+                
+            {
+                if(d->type == R)
+                    *changedReg = d->regs.r.rd ; //write back to rd
+                else if(d->type == I)
+                    *changedReg = d->regs.i.rt; //write back to rt
+                mips.registers[*changedReg] = val;
+            }       
     }
 }
+
